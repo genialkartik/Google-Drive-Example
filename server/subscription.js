@@ -1,8 +1,7 @@
 const rtr = require('express').Router()
 const fs = require('fs');
-const readline = require('readline');
+const async = require('async')
 const { google } = require('googleapis');
-const { oAuth } = require('../config/dev');
 
 
 // If modifying these scopes, delete token.json.
@@ -36,12 +35,10 @@ function getAccessToken(oAuth2Client, callback) {
   });
   temp_auth = oAuth2Client
   authURL = authUrl
-  console.log('Authorize this app by visiting this url:', authUrl);
   callback(authUrl, 1)
 }
 
 function getAuthAccessToken(oAuth2Client, code, callback) {
-  console.log(code)
   oAuth2Client.getToken(code, (err, token) => {
     if (err) return console.error('Error retrieving access token', err);
     oAuth2Client.setCredentials(token);
@@ -57,23 +54,33 @@ function getAuthAccessToken(oAuth2Client, code, callback) {
 }
 
 function listFiles(auth, callback) {
+  let subscriptions = []
   const drive = google.drive({ version: 'v3', auth });
+  // get details about user (Subscriber)
+  drive.about.get({"fields": "user"},(err, res)=>{
+    console.log(res.data.user)
+    if (err) console.log(err)
+    else subscriptions.push(res.data.user)
+  })
+  // get spreadsheets
   drive.files.list({
-    q: "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
-    fields: 'nextPageToken, files(id, name)',
+    q: "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'", // xlsx files only
+    fields: 'nextPageToken, files(id, name)', // name and id of spreadsheets
   }, (err, res) => {
     if (err) return console.log('The API returned an error: ' + err);
     const files = res.data.files;
-    if (files.length) {
-      console.log('Files:');
-      files.map((file) => {
-        console.log(`${file.name} (${file.id})`);
-      });
-    } else {
-      console.log('No files found.')
-    }
+    console.log(files)
+    subscriptions.push(files)
+    // if (files.length) {
+    //   console.log('Files:');
+    //   files.map((file) => {
+    //     console.log(`${file.name} (${file.id})`);
+    //   });
+    // } else {
+    //   console.log('No files found.')
+    // }
   })
-  callback(1);
+  callback(subscriptions, 1);
 }
 
 rtr.route('/add')
@@ -84,8 +91,9 @@ rtr.route('/add')
       // Authorize a client with credentials, then call the Google Drive API.
       authorize(JSON.parse(content), (authcb, acb) => {
         if (acb == 0) {
-          listFiles(authcb, cbb => {
+          listFiles(authcb, (subs, cbb) => {
             if (cbb == 1) {
+              console.log(subs)
               res.json({
                 status: 1, // token
                 files: 'success'
