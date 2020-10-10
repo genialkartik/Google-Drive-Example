@@ -1,6 +1,5 @@
 const rtr = require('express').Router()
 const fs = require('fs');
-const async = require('async')
 const { google } = require('googleapis');
 
 
@@ -71,14 +70,6 @@ function listFiles(auth, callback) {
     const files = res.data.files;
     console.log(files)
     subscriptions.push(files)
-    // if (files.length) {
-    //   console.log('Files:');
-    //   files.map((file) => {
-    //     console.log(`${file.name} (${file.id})`);
-    //   });
-    // } else {
-    //   console.log('No files found.')
-    // }
   })
   callback(subscriptions, 1);
 }

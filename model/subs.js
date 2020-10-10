@@ -7,10 +7,11 @@ const SubscriptionData = new Schema({
     required: true
   },
   subscriptions: [{
+    subscriptionId: Number, // googleId
     email: String,
     name: String,
-    googleId: Number,
-    imageUrl: String,
+    imageUrl: String, // Avatar
+    sheetsCount: Number,
     tokedId: String,
     accessToken: String
   }]
