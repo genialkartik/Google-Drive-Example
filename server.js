@@ -35,6 +35,7 @@ mongoose.connect(config.mongoURI, {
 app.use('/user', require('./server/user'))
 app.use('/dashboard', require('./server/dashboard'))
 app.use('/subscriptions', require('./server/subscription'))
+app.use('/sheet', require('./server/sheet'))
 
 app.use(morgan('tiny'));
 

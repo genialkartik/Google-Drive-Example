@@ -3,20 +3,22 @@ const Schema = mongoose.Schema
 
 const SheetsData = new Schema({
   subscriptionId: {
-    type: Number,
+    type: String,
     required: true
   },
-  sheets: [{ // All sheets associated with subscriptionId
-    sheetId: Number,
-    sheetName: String,
-    TotalTabs: Number,
-    TabsCount: Number,
-    tabs: [{  // All Tabs within a sheets
-      TabName: String,
-      columnCount: Number,
-      rowCount: Number
-    }]
-  }]
+  sheets: {      // Sheet's id and Name
+    type: Array,
+    default: []
+  }, 
+  totalTabs: {
+    type: Number,
+    default: 0
+  },
+  TabsAdded: {
+    type: Number,
+    default: 0
+  },
+  tabs: Array,   // Name, column count, row count
 })
 
 module.exports = SheetData = mongoose.model('sheets', SheetsData)

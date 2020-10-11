@@ -2,20 +2,20 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
 const SubscriptionData = new Schema({
-  account_holder: {
+  authUser: {
     type: String,
     required: true
   },
-  subscriptions: [{
-    subscriptionId: Number, // googleId
-    email: String,
-    name: String,
-    imageUrl: String, // Avatar
-    sheetsCount: Number,
-    tokenId: String,
-    accessToken: String,
-    token: String,
-  }]
+  subscriptionId: {
+    type: String,
+    required: true
+  },
+  userDetails: {
+    type: Object,
+    required: true
+  },
+  token: Object,
+  sheetCount: Number
 })
 
 module.exports = Subscriptions = mongoose.model('subscriptions', SubscriptionData)
