@@ -8,70 +8,59 @@ const SCOPES = ['https://www.googleapis.com/auth/drive.metadata'];
 const TOKEN_PATH = 'token.json';
 
 let temp_auth;
-let authURL = 0;
-let token_found = 0;
+let tempToken = 0;
+let token_flag = 0;
 
 function authorize(credentials, callback) {
-  const { client_secret, client_id, redirect_uris } = credentials.web;
-  const oAuth2Client = new google.auth.OAuth2(
+  const { client_secret, client_id, redirect_uris } = credentials.web; // get credentials
+  const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
     client_id, client_secret, redirect_uris[0]);
-
-  // Check if we have previously stored a token.
-  fs.readFile(__dirname + '/' + TOKEN_PATH, (err, token) => {
-    if (err) return getAccessToken(oAuth2Client, callback);
-    console.log('token exists')
-    oAuth2Client.setCredentials(JSON.parse(token));
-    temp_auth = oAuth2Client;
-    token_found = 1;
-    callback(oAuth2Client, 0);
-  });
+  if (token_flag == 0) {
+    return getAccessToken(oAuth2Client, callback);
+  } else {
+    callback(temp_auth, 0);
+  }
 }
 
 function getAccessToken(oAuth2Client, callback) {
-  const authUrl = oAuth2Client.generateAuthUrl({
+  const authUrl = oAuth2Client.generateAuthUrl({  // create oAuth URL to get drive access
     access_type: 'offline',
     scope: SCOPES,
   });
   temp_auth = oAuth2Client
-  authURL = authUrl
   callback(authUrl, 1)
 }
 
-function getAuthAccessToken(oAuth2Client, code, callback) {
-  oAuth2Client.getToken(code, (err, token) => {
-    if (err) return console.error('Error retrieving access token', err);
-    oAuth2Client.setCredentials(token);
-    // Store the token to disk for later program executions
-    fs.writeFile(__dirname + '/' + TOKEN_PATH, JSON.stringify(token), (err) => {
-      if (err) return console.error(err);
-      console.log('Token stored to', TOKEN_PATH);
-    });
-    console.log('4')
-    temp_auth = oAuth2Client
-    callback(1);
-  });
+async function getAuthAccessToken(oAuth2Client, code, callback) {
+  try {
+    const getToken = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(getToken.tokens)
+    tempToken = getToken.tokens;
+    token_flag = 1;
+    callback(oAuth2Client, 1)
+  } catch (error) {
+    if (error) console.log(error)
+    callback(null, 0)
+  }
 }
 
-function listFiles(auth, callback) {
-  let subscriptions = []
-  const drive = google.drive({ version: 'v3', auth });
-  // get details about user (Subscriber)
-  drive.about.get({"fields": "user"},(err, res)=>{
-    console.log(res.data.user)
-    if (err) console.log(err)
-    else subscriptions.push(res.data.user)
-  })
-  // get spreadsheets
-  drive.files.list({
-    q: "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'", // xlsx files only
-    fields: 'nextPageToken, files(id, name)', // name and id of spreadsheets
-  }, (err, res) => {
-    if (err) return console.log('The API returned an error: ' + err);
-    const files = res.data.files;
-    console.log(files)
-    subscriptions.push(files)
-  })
-  callback(subscriptions, 1);
+async function listFiles(auth, callback) {
+  try {
+    let subscriptions = []
+    const drive = google.drive({ version: 'v3', auth });
+    const userdetail = await drive.about.get({ "fields": "user" })
+    subscriptions.push(userdetail.data.user)
+    const flist = await drive.files.list({
+      q: "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'", // xlsx files only
+      fields: 'nextPageToken, files(id, name)', // name and id of spreadsheets
+    })
+    subscriptions.push(flist.data.files)
+    callback(subscriptions, 1)
+  } catch (error) {
+    if (error) console.log('The API returned an error: ' + error);
+    console.log('listfile erro')
+    callback([], 0)
+  }
 }
 
 rtr.route('/add')
@@ -83,8 +72,9 @@ rtr.route('/add')
       authorize(JSON.parse(content), (authcb, acb) => {
         if (acb == 0) {
           listFiles(authcb, (subs, cbb) => {
+            console.log("subs")
+            console.log(subs)
             if (cbb == 1) {
-              console.log(subs)
               res.json({
                 status: 1, // token
                 files: 'success'
@@ -111,9 +101,10 @@ rtr.route('/add')
 
 rtr.route('/')
   .post((req, res) => {
-    getAuthAccessToken(temp_auth, req.body.code, cb => {
+    getAuthAccessToken(temp_auth, req.body.code, (auth, cb) => {
       if (cb == 1) {
-        listFiles(temp_auth, cbb => {
+        listFiles(auth, (subs, cbb) => {
+          console.log(subs)
           if (cbb == 1) {
             res.json({
               status: 3, // get file with auth

@@ -12,8 +12,9 @@ const SubscriptionData = new Schema({
     name: String,
     imageUrl: String, // Avatar
     sheetsCount: Number,
-    tokedId: String,
-    accessToken: String
+    tokenId: String,
+    accessToken: String,
+    token: String,
   }]
 })
 
