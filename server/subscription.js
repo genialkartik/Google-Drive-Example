@@ -6,7 +6,9 @@ const Subscriptions = require('../model/subs')
 const SheetData = require('../model/sheets')
 
 // If modifying these scopes, delete token.json.
-const SCOPES = ['https://www.googleapis.com/auth/drive.metadata'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/drive'
+];
 
 let temp_auth = null;
 
@@ -43,7 +45,7 @@ async function listFiles(auth, token, callback) {
     let subscriptions = []
     const drive = google.drive({ version: 'v3', auth });
     const userdetail = await drive.about.get({ "fields": "user" })
-    newuser = userdetail.data.user
+    const newuser = userdetail.data.user
     const query = Subscriptions.find({ subscriptionId: newuser.emailAddress })
     const sub = await query.exec()
     if (sub.length) {
@@ -53,8 +55,8 @@ async function listFiles(auth, token, callback) {
       console.log('created new subscription')
       subscriptions.push(newuser)
       const flist = await drive.files.list({
-        q: "mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'", // xlsx files only
-        fields: 'nextPageToken, files(id, name)', // name and id of spreadsheets
+        q: "mimeType='application/vnd.google-apps.spreadsheet'", // xlsx files only
+        fields: 'nextPageToken, files(id, name, sheets)', // name and id of spreadsheets
       })
       const filesList = flist.data.files
       subscriptions.push(filesList)
@@ -127,25 +129,28 @@ rtr.route('/')
             if (subs.length) {
               res.json({
                 status: 3, // get file with auth
+                msg: 'Success'
               })
             }
             else {
               console.log('keep trying')
               res.json({
                 status: 2, // get file with auth
+                msg: 'Something went wrong'
               })
             }
           })
         } else {
-          console.log('Subscription already exists OR Something went wrong')
           res.json({
             status: 1, // get file with auth
+            msg: 'Subscription already exists'
           })
         }
       })
     } else {
       res.json({
         status: 0,
+        msg: 'Something went wrong'
       })
     }
   })
