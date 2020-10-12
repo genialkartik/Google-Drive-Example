@@ -3,10 +3,17 @@ const User = require('../model/user')
 
 rtr.route('/login')
   .get((req, res) => {
-    res.json({
-      status: 200,
-      msg: 'Loging In'
-    })
+    if (req.session.userdata) {
+      res.json({
+        status: 1,
+        msg: 'Already Logged In'
+      })
+    } else {
+      res.json({
+        status: 0,
+        msg: 'Loging In'
+      })
+    }
   })
   .post((req, res) => {
     // data from signin form
@@ -81,13 +88,16 @@ rtr.route('/signup')
     })
   })
 
-rtr.route('/google')
+rtr.route('/logout')
   .get((req, res) => {
-    console.log('/auth/google')
+    if (req.session.userdata) {
+      req.session.destroy(function () {
+      });
+    }
     res.json({
-      status: 200,
-      msg: 'Google Signing'
+      status: 1,
+      msg: 'Logged Out Succesfully'
     })
-  })
+  });
 
 module.exports = rtr

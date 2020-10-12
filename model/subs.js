@@ -14,7 +14,7 @@ const SubscriptionData = new Schema({
     type: Object,
     required: true
   },
-  token: Object,
+  oAuth: Object,
   sheetCount: Number
 })
 

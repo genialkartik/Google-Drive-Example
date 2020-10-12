@@ -9,16 +9,7 @@ const SheetsData = new Schema({
   sheets: {      // Sheet's id and Name
     type: Array,
     default: []
-  }, 
-  totalTabs: {
-    type: Number,
-    default: 0
-  },
-  TabsAdded: {
-    type: Number,
-    default: 0
-  },
-  tabs: Array,   // Name, column count, row count
+  }
 })
 
 module.exports = SheetData = mongoose.model('sheets', SheetsData)

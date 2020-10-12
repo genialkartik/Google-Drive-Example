@@ -4,10 +4,12 @@ const { google } = require('googleapis');
 
 const Subscriptions = require('../model/subs')
 const SheetData = require('../model/sheets')
+const StoredSheet = require('../model/sheetsStored')
 
 // If modifying these scopes, delete token.json.
 const SCOPES = [
-  'https://www.googleapis.com/auth/drive'
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/spreadsheets'
 ];
 
 let temp_auth = null;
@@ -50,22 +52,23 @@ async function listFiles(auth, token, callback) {
     const sub = await query.exec()
     if (sub.length) {
       console.log('subscription already exists')
+      callback(null)
     }
     else {
-      console.log('created new subscription')
+      console.log('creating new subscription')
       subscriptions.push(newuser)
       const flist = await drive.files.list({
         q: "mimeType='application/vnd.google-apps.spreadsheet'", // xlsx files only
-        fields: 'nextPageToken, files(id, name, sheets)', // name and id of spreadsheets
+        fields: 'nextPageToken, files(id, name)', // name and id of spreadsheets
       })
       const filesList = flist.data.files
       subscriptions.push(filesList)
       // Save credentials, token, and sheets in to Table (subscriptions)
       const newSub = new Subscriptions({
-        authUser: 'genialkartik',
+        authUser: req.session.userdata.username,
         subscriptionId: newuser.emailAddress,
         userDetails: newuser,
-        token: token,
+        oAuth: token,
         sheetCount: filesList.length
       })
       newSub.save()
@@ -80,12 +83,44 @@ async function listFiles(auth, token, callback) {
     callback(subscriptions)
   } catch (error) {
     if (error) console.log('The API returned an error: ' + error);
-    console.log('listfile erro')
-    callback([])
+    callback(null)
   }
 }
 
-rtr.route('/add')
+async function getTabsList(auth, sheetId, callback) {
+  try {
+    let tabs = []
+    const sheets = google.sheets({ version: 'v4', auth });
+    const sheet_res = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId  //sheet.id
+    })
+    for (let i = 0; i < sheet_res.data.sheets.length; i++) {
+      tabs.push(sheet_res.data.sheets[i].properties.title)
+    }
+    callback(tabs)
+  } catch (error) {
+    if (error) console.log('The API returned an error: ' + error);
+    callback(null)
+  }
+}
+
+async function getSheetData(auth, sheetId, tabId, callback) {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth });
+    const sheetRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: tabId,
+      majorDimension: 'COLUMNS'
+    })
+    callback(sheetRes.data.values.length)
+  } catch (error) {
+    if (error) console.log('The API returned an error: ' + error);
+    callback(null)
+  }
+}
+
+// create new subscription
+rtr.route('/add-sub')
   .get((req, res) => {
     fs.readFile(__dirname + '/credentials.json', (err, content) => {
       if (err) return console.log('Error loading client secret file:', err);
@@ -106,44 +141,54 @@ rtr.route('/add')
   })
 
 rtr.route('/')
+  // Get list of all subscription of a user (/subscription)
   .get((req, res) => {
-    Subscriptions.find({ authUser: 'genialkartik' }, (err, subsList) => {
-      if (subsList.length) {
-        res.json({
-          status: 200,
-          subfiles: subsList
-        })
-      } else {
-        res.json({
-          status: 200,
-          subfiles: []
-        })
-      }
-    })
+
+    if (req.session.userdata) {
+      Subscriptions.find({ authUser: req.session.userdata.username }, (err, subsList) => {
+        if (subsList.length) {
+          res.json({
+            status: 200,
+            subfiles: subsList
+          })
+        } else {
+          res.json({
+            status: 200,
+            subfiles: []
+          })
+        }
+      })
+    } else {
+      res.json({
+        status: 0, // change to 401
+        msg: 'Login First',
+        subfiles: []
+      })
+    }
   })
+  // get oAuth -> Acces -> then save details (user, oAuth2Client, subscription)
   .post((req, res) => {
     if (temp_auth) {
       getAuthAccessToken(temp_auth, req.body.code, (auth, token) => {
         if (auth && token) {
           listFiles(auth, token, subs => {
-            if (subs.length) {
+            if (subs) {
               res.json({
-                status: 3, // get file with auth
+                status: 4, // get file with auth
                 msg: 'Success'
               })
             }
             else {
-              console.log('keep trying')
               res.json({
-                status: 2, // get file with auth
-                msg: 'Something went wrong'
+                status: 3, // subscription exists
+                msg: 'Subscription already exists'
               })
             }
           })
         } else {
           res.json({
             status: 1, // get file with auth
-            msg: 'Subscription already exists'
+            msg: 'Something Went Wrong'
           })
         }
       })
@@ -153,6 +198,129 @@ rtr.route('/')
         msg: 'Something went wrong'
       })
     }
+  })
+
+// open add sheet form
+rtr.route('/sheetform/:subsid')
+  .get((req, res) => {
+    const subsId = req.params.subsid.toString()
+    SheetData.find({ subscriptionId: subsId }, (err, subsList) => {
+      if (subsList) {
+        res.json({
+          status: 200,
+          subfiles: subsList,
+          subsId: subsId
+        })
+      } else {
+        res.json({
+          status: 200,
+          subfiles: [],
+          subsId: subsId
+        })
+      }
+    })
+  })
+
+// get tab list of sheet with id = sheetId
+rtr.route('/add-sheet/:subsId/:sheetId')
+  .get((req, res) => {
+    if (temp_auth) {
+      getTabsList(temp_auth, req.params.sheetId, tabslist => {
+        if (tabslist.length) {
+          res.json({
+            status: 2,
+            tablist: tabslist
+          })
+        } else {
+          res.json({
+            status: 0,
+            tablist: []
+          })
+        }
+      })
+    } else {
+      fs.readFile(__dirname + '/credentials.json', (err, content) => {
+        if (err) return console.log('Error loading client secret file:', err);
+
+        const { client_secret, client_id, redirect_uris } = JSON.parse(content).web; // get credentials
+        const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
+          client_id, client_secret, redirect_uris[0]);
+
+        Subscriptions.find({ subscriptionId: req.params.subsId }, (err, sub) => {
+          oAuth2Client.setCredentials(sub[0].oAuth)
+
+          getTabsList(oAuth2Client, req.params.sheetId, tabslist => {
+            if (tabslist.length) {
+              res.json({
+                status: 2,
+                tablist: tabslist
+              })
+            } else {
+              res.json({
+                status: 0,
+                tablist: []
+              })
+            }
+          })
+        })
+      })
+    }
+  })
+
+rtr.route('/add-sheet')
+  .post((req, res) => {
+    SheetData.find({ sheetId: req.body.sheetId, tabName: req.body.tabId }, (err, sheet) => {
+      console.log(sheet)
+      if (sheet.length == 0) {
+        res.json({
+          status: 0,
+          msg: 'Sheet Already Exists'
+        })
+      }
+      else {
+        if (temp_auth) {
+          getSheetData(temp_auth, req.body.sheetId, req.body.tabId, sheetData => {
+            // Save SpreadSheet Data
+            const newSheetData = new StoredSheet({
+              subscriptionId: req.body.subsId,
+              sheetId: req.body.sheetId,
+              tabName: req.body.tabId,
+              columnCount: sheetData
+            })
+            newSheetData.save()
+            res.json({
+              status: 1,
+              msg: 'Sheet saved successfully!'
+            })
+          })
+        } else {
+          fs.readFile(__dirname + '/credentials.json', (err, content) => {
+            if (err) return console.log('Error loading client secret file:', err);
+
+            const { client_secret, client_id, redirect_uris } = JSON.parse(content).web; // get credentials
+            const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
+              client_id, client_secret, redirect_uris[0]);
+            Subscriptions.find({ subscriptionId: req.body.subsId }, (err, sub) => {
+              oAuth2Client.setCredentials(sub[0].oAuth)
+              getSheetData(oAuth2Client, req.body.sheetId, req.body.tabId, sheetData => {
+                // Save SpreadSheet Data
+                const newSheetData = new StoredSheet({
+                  subscriptionId: req.body.subsId,
+                  sheetId: req.body.sheetId,
+                  tabName: req.body.tabId,
+                  columnCount: sheetData
+                })
+                newSheetData.save()
+                res.json({
+                  status: 1,
+                  msg: 'Sheet saved successfully.'
+                })
+              })
+            })
+          })
+        }
+      }
+    })
   })
 
 module.exports = rtr
