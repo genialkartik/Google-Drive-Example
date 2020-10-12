@@ -42,19 +42,17 @@ async function getAuthAccessToken(oAuth2Client, code, callback) {
   }
 }
 
-async function listFiles(auth, token, callback) {
+async function listFiles(auth, username, token, callback) {
   try {
     let subscriptions = []
     const drive = google.drive({ version: 'v3', auth });
     const userdetail = await drive.about.get({ "fields": "user" })
     const newuser = userdetail.data.user
-    const query = Subscriptions.find({ subscriptionId: newuser.emailAddress })
+    const query = Subscriptions.find({ subscriptionId: newuser.emailAddress, authUser: username })
     const sub = await query.exec()
-    if (sub.length) {
-      console.log('subscription already exists')
-      callback(null)
-    }
-    else {
+    console.log(sub)
+    console.log(sub.length)
+    if (sub.length == 0) {
       console.log('creating new subscription')
       subscriptions.push(newuser)
       const flist = await drive.files.list({
@@ -65,7 +63,7 @@ async function listFiles(auth, token, callback) {
       subscriptions.push(filesList)
       // Save credentials, token, and sheets in to Table (subscriptions)
       const newSub = new Subscriptions({
-        authUser: req.session.userdata.username,
+        authUser: username,
         subscriptionId: newuser.emailAddress,
         userDetails: newuser,
         oAuth: token,
@@ -79,8 +77,11 @@ async function listFiles(auth, token, callback) {
       })
       newSheet.save()
       console.log('saved')
+      callback(subscriptions)
+    } else {
+      console.log('subscription already exists')
+      callback(null)
     }
-    callback(subscriptions)
   } catch (error) {
     if (error) console.log('The API returned an error: ' + error);
     callback(null)
@@ -171,7 +172,7 @@ rtr.route('/')
     if (temp_auth) {
       getAuthAccessToken(temp_auth, req.body.code, (auth, token) => {
         if (auth && token) {
-          listFiles(auth, token, subs => {
+          listFiles(auth, req.session.userdata.username, token, subs => {
             if (subs) {
               res.json({
                 status: 4, // get file with auth
@@ -246,7 +247,7 @@ rtr.route('/add-sheet/:subsId/:sheetId')
         const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
           client_id, client_secret, redirect_uris[0]);
 
-        Subscriptions.find({ subscriptionId: req.params.subsId }, (err, sub) => {
+        Subscriptions.find({ subscriptionId: req.params.subsId  }, (err, sub) => {
           oAuth2Client.setCredentials(sub[0].oAuth)
 
           getTabsList(oAuth2Client, req.params.sheetId, tabslist => {
@@ -271,7 +272,7 @@ rtr.route('/add-sheet')
   .post((req, res) => {
     SheetData.find({ sheetId: req.body.sheetId, tabName: req.body.tabId }, (err, sheet) => {
       console.log(sheet)
-      if (sheet.length == 0) {
+      if (sheet.length != 0) {
         res.json({
           status: 0,
           msg: 'Sheet Already Exists'
