@@ -38,5 +38,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:2050/"
+  "proxy": "https://kartikgreendeck.herokuapp.com/"
 }

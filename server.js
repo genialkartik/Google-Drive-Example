@@ -5,17 +5,23 @@ const mongoose = require('mongoose')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 const morgan = require('morgan');
-
-const config = require('./config/key')
-
-// const passportSetup = require('./config/passport-setup')
+const path = require('path')
+const config = require('./config/key.js')
 
 app.use(cors());
+
+app.use(function (req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
 
 const port = process.env.PORT || 2050
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
+
+app.use(express.static(path.join(__dirname, 'build')));
 
 app.use(session({
     secret: 'greendeck',
@@ -37,6 +43,10 @@ app.use('/dashboard', require('./server/dashboard'))
 app.use('/subscriptions', require('./server/subscription'))
 
 app.use(morgan('tiny'));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 app.listen(port, () => {
     console.log('Listening on PORT: ' + port)

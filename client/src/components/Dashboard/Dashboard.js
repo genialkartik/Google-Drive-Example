@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Redirect } from 'react-router-dom'
 import axios from 'axios'
 import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core/styles';
@@ -114,13 +115,14 @@ export default function Dashboard(props) {
   const classes = useStyles();
   const [open, setOpen] = React.useState(true);
   const [sheets, setSheets] = React.useState()
+  const [login, setLogin] = React.useState(true)
 
   useEffect(() => {
     axios.get('/dashboard')
       .then(res => {
         if (res.data.status === 0) {
           alert(res.data.msg)
-          window.location.replace('/user/login')
+          setLogin(false)
         } else {
           setSheets(res.data.sheetsData)
         }
@@ -137,101 +139,107 @@ export default function Dashboard(props) {
 
   return (
     <div className={classes.root}>
-      <CssBaseline />
-      <AppBar position="absolute" className={clsx(classes.appBar, open && classes.appBarShift)}>
-        <Toolbar className={classes.toolbar}>
-          <IconButton
-            edge="start"
-            color="inherit"
-            aria-label="open drawer"
-            onClick={handleDrawerOpen}
-            className={clsx(classes.menuButton, open && classes.menuButtonHidden)}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
-            Dashboard
+      {(login) ?
+        <>
+          <CssBaseline />
+          <AppBar position="absolute" className={clsx(classes.appBar, open && classes.appBarShift)}>
+            <Toolbar className={classes.toolbar}>
+              <IconButton
+                edge="start"
+                color="inherit"
+                aria-label="open drawer"
+                onClick={handleDrawerOpen}
+                className={clsx(classes.menuButton, open && classes.menuButtonHidden)}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
+                Dashboard
           </Typography>
-        </Toolbar>
-      </AppBar>
-      <Drawer
-        variant="permanent"
-        classes={{
-          paper: clsx(classes.drawerPaper, !open && classes.drawerPaperClose),
-        }}
-        open={open}
-      >
-        <div className={classes.toolbarIcon}>
-          <IconButton onClick={handleDrawerClose}>
-            <ChevronLeftIcon />
-          </IconButton>
-        </div>
-        <Divider />
-        <List>{mainListItems}</List>
-        <Divider />
-      </Drawer>
-      <main className={classes.content}>
-        <div className={classes.appBarSpacer} />
-        <Container maxWidth="lg" className={classes.container}>
-          <Grid container spacing={3}>
-            {/* Chart */}
-            <Grid item xs={12} md={8} lg={9}>
-              <Paper className={fixedHeightPaper}>
-                <Chart />
-              </Paper>
-            </Grid>
-            {/* Recent Deposits */}
-            <Grid item xs={12} md={4} lg={3}>
-              <Paper className={fixedHeightPaper}>
-                <React.Fragment>
-                  <Title>Total SpreadSheet</Title><br />
-                  <Typography component="p" variant="h3">
-                    {sheets ? sheets.length : '0'}
-                  </Typography>
-                  <Typography color="textSecondary" className={classes.depositContext}>
-                    on 12 October, 2020</Typography>
-                </React.Fragment>
-              </Paper>
-            </Grid>
-            {/* Recent Orders */}
-            <Grid item xs={12}>
-              <Paper className={classes.paper}>
+            </Toolbar>
+          </AppBar>
+          <Drawer
+            variant="permanent"
+            classes={{
+              paper: clsx(classes.drawerPaper, !open && classes.drawerPaperClose),
+            }}
+            open={open}
+          >
+            <div className={classes.toolbarIcon}>
+              <IconButton onClick={handleDrawerClose}>
+                <ChevronLeftIcon />
+              </IconButton>
+            </div>
+            <Divider />
+            <List>{mainListItems}</List>
+            <Divider />
+          </Drawer>
+          <main className={classes.content}>
+            <div className={classes.appBarSpacer} />
+            <Container maxWidth="lg" className={classes.container}>
+              <Grid container spacing={3}>
+                {/* Chart */}
+                <Grid item xs={12} md={8} lg={9}>
+                  <Paper className={fixedHeightPaper}>
+                    <Chart />
+                  </Paper>
+                </Grid>
+                {/* Recent Deposits */}
+                <Grid item xs={12} md={4} lg={3}>
+                  <Paper className={fixedHeightPaper}>
+                    <React.Fragment>
+                      <Title>Total SpreadSheet</Title><br />
+                      <Typography component="p" variant="h3">
+                        {sheets ? sheets.length : '0'}
+                      </Typography>
+                      <Typography color="textSecondary" className={classes.depositContext}>
+                        on 12 October, 2020</Typography>
+                    </React.Fragment>
+                  </Paper>
+                </Grid>
+                {/* Recent Orders */}
+                <Grid item xs={12}>
+                  <Paper className={classes.paper}>
 
-                {(sheets) ?
-                  <React.Fragment>
-                    <Title>Recent Orders</Title>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Subscription</TableCell>
-                          <TableCell>Sheet ID</TableCell>
-                          <TableCell>Tab Name</TableCell>
-                          <TableCell align="right">Column Count</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {sheets.map((sheet) => (
-                          <TableRow key={sheet.sheetId}>
-                            <TableCell>{sheet.subscriptionId}</TableCell>
-                            <TableCell>{sheet.sheetId}</TableCell>
-                            <TableCell>{sheet.tabName}</TableCell>
-                            <TableCell align="right">{sheet.columnCount}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </React.Fragment>
-                  :
-                  <div>
-                    <h2>No Subscriptions/Sheet Added</h2>
-                  </div>
-                }
+                    {(sheets) ?
+                      <React.Fragment>
+                        <Title>Recent Orders</Title>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Subscription</TableCell>
+                              <TableCell>Sheet ID</TableCell>
+                              <TableCell>Tab Name</TableCell>
+                              <TableCell align="right">Column Count</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {sheets.map((sheet) => (
+                              <TableRow key={sheet.sheetId}>
+                                <TableCell>{sheet.subscriptionId}</TableCell>
+                                <TableCell>{sheet.sheetId}</TableCell>
+                                <TableCell>{sheet.tabName}</TableCell>
+                                <TableCell align="right">{sheet.columnCount}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </React.Fragment>
+                      :
+                      <div>
+                        <h2>No Subscriptions/Sheet Added</h2>
+                      </div>
+                    }
 
-              </Paper>
-            </Grid>
-          </Grid>
-        </Container>
-      </main>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Container>
+          </main>
+        </>
+        :
+        <Redirect to='/user/login' />
+      }
     </div>
   );
 }
