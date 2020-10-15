@@ -72,6 +72,7 @@ async function listFiles(auth, username, token, callback) {
       newSub.save()
       // save sheets data into new Table (sheets)
       const newSheet = new SheetData({
+        username: username,
         subscriptionId: newuser.emailAddress,
         sheets: filesList
       })
@@ -144,21 +145,62 @@ rtr.route('/add-sub')
 rtr.route('/')
   // Get list of all subscription of a user (/subscription)
   .get((req, res) => {
-
     if (req.session.userdata) {
-      Subscriptions.find({ authUser: req.session.userdata.username }, (err, subsList) => {
-        if (subsList.length) {
-          res.json({
-            status: 200,
-            subfiles: subsList
+      if (req.query.code) {
+        if (temp_auth) {
+          getAuthAccessToken(temp_auth, req.query.code, (auth, token) => {
+            if (auth && token) {
+              listFiles(auth, req.session.userdata.username, token, subs => {
+                if (subs) {
+                  req.session.userdata = {
+                    username: req.session.userdata.username,
+                    name: req.session.userdata.name,
+                    redir: '/subscriptions'
+                  }
+                  res.redirect('/')
+                }
+                else {
+                  res.json({
+                    status: 3, // subscription exists
+                    msg: 'Subscription already exists'
+                  })
+                }
+              })
+            } else {
+              res.json({
+                status: 1, // get file with auth
+                msg: 'Something Went Wrong'
+              })
+            }
           })
         } else {
           res.json({
-            status: 200,
-            subfiles: []
+            status: 0,
+            msg: 'Something went wrong'
           })
         }
-      })
+      } else {
+        if (req.session.userdata.redir) {
+          req.session.userdata = {
+            username: req.session.userdata.username,
+            name: req.session.userdata.name,
+            redir: null
+          }
+        }
+        Subscriptions.find({ authUser: req.session.userdata.username }, (err, subsList) => {
+          if (subsList.length) {
+            res.json({
+              status: 200,
+              subfiles: subsList
+            })
+          } else {
+            res.json({
+              status: 200,
+              subfiles: []
+            })
+          }
+        })
+      }
     } else {
       res.json({
         status: 0, // change to 401
@@ -167,45 +209,15 @@ rtr.route('/')
       })
     }
   })
-  // get oAuth -> Acces -> then save details (user, oAuth2Client, subscription)
-  .post((req, res) => {
-    if (temp_auth) {
-      getAuthAccessToken(temp_auth, req.body.code, (auth, token) => {
-        if (auth && token) {
-          listFiles(auth, req.session.userdata.username, token, subs => {
-            if (subs) {
-              res.json({
-                status: 4, // get file with auth
-                msg: 'Success'
-              })
-            }
-            else {
-              res.json({
-                status: 3, // subscription exists
-                msg: 'Subscription already exists'
-              })
-            }
-          })
-        } else {
-          res.json({
-            status: 1, // get file with auth
-            msg: 'Something Went Wrong'
-          })
-        }
-      })
-    } else {
-      res.json({
-        status: 0,
-        msg: 'Something went wrong'
-      })
-    }
-  })
+// // get oAuth -> Acces -> then save details (user, oAuth2Client, subscription)
+// .post((req, res) => {
+// })
 
 // open add sheet form
 rtr.route('/sheetform/:subsid')
   .get((req, res) => {
     const subsId = req.params.subsid.toString()
-    SheetData.find({ subscriptionId: subsId }, (err, subsList) => {
+    SheetData.find({ subscriptionId: subsId, username: req.session.userdata.username }, (err, subsList) => {
       if (subsList) {
         res.json({
           status: 200,
@@ -247,7 +259,7 @@ rtr.route('/add-sheet/:subsId/:sheetId')
         const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
           client_id, client_secret, redirect_uris[0]);
 
-        Subscriptions.find({ subscriptionId: req.params.subsId  }, (err, sub) => {
+        Subscriptions.find({ subscriptionId: req.params.subsId }, (err, sub) => {
           oAuth2Client.setCredentials(sub[0].oAuth)
 
           getTabsList(oAuth2Client, req.params.sheetId, tabslist => {
@@ -270,58 +282,69 @@ rtr.route('/add-sheet/:subsId/:sheetId')
 
 rtr.route('/add-sheet')
   .post((req, res) => {
-    SheetData.find({ sheetId: req.body.sheetId, tabName: req.body.tabId }, (err, sheet) => {
-      console.log(sheet)
-      if (sheet.length != 0) {
-        res.json({
-          status: 0,
-          msg: 'Sheet Already Exists'
-        })
-      }
-      else {
-        if (temp_auth) {
-          getSheetData(temp_auth, req.body.sheetId, req.body.tabId, sheetData => {
-            // Save SpreadSheet Data
-            const newSheetData = new StoredSheet({
-              subscriptionId: req.body.subsId,
-              sheetId: req.body.sheetId,
-              tabName: req.body.tabId,
-              columnCount: sheetData
-            })
-            newSheetData.save()
-            res.json({
-              status: 1,
-              msg: 'Sheet saved successfully!'
-            })
+    if (req.session.userdata) {
+      SheetData.find({ sheetId: req.body.sheetId, tabName: req.body.tabId }, (err, sheet) => {
+        if (sheet.length != 0) {
+          res.json({
+            status: 0,
+            msg: 'Sheet Already Exists'
           })
-        } else {
-          fs.readFile(__dirname + '/credentials.json', (err, content) => {
-            if (err) return console.log('Error loading client secret file:', err);
+        }
+        else {
+          if (temp_auth) {
+            getSheetData(temp_auth, req.body.sheetId, req.body.tabId, sheetData => {
+              // Save SpreadSheet Data
+              const newSheetData = new StoredSheet({
+                username: req.session.userdata.username,
+                subscriptionId: req.body.subsId,
+                sheetId: req.body.sheetId,
+                tabName: req.body.tabId,
+                columnCount: sheetData
+              })
+              console.log(newSheetData)
+              newSheetData.save()
+                .then(res => console.log(res))
+              res.json({
+                status: 1,
+                msg: 'Sheet saved successfully!'
+              })
+            })
+          } else {
+            fs.readFile(__dirname + '/credentials.json', (err, content) => {
+              if (err) return console.log('Error loading client secret file:', err);
 
-            const { client_secret, client_id, redirect_uris } = JSON.parse(content).web; // get credentials
-            const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
-              client_id, client_secret, redirect_uris[0]);
-            Subscriptions.find({ subscriptionId: req.body.subsId }, (err, sub) => {
-              oAuth2Client.setCredentials(sub[0].oAuth)
-              getSheetData(oAuth2Client, req.body.sheetId, req.body.tabId, sheetData => {
-                // Save SpreadSheet Data
-                const newSheetData = new StoredSheet({
-                  subscriptionId: req.body.subsId,
-                  sheetId: req.body.sheetId,
-                  tabName: req.body.tabId,
-                  columnCount: sheetData
-                })
-                newSheetData.save()
-                res.json({
-                  status: 1,
-                  msg: 'Sheet saved successfully.'
+              const { client_secret, client_id, redirect_uris } = JSON.parse(content).web; // get credentials
+              const oAuth2Client = new google.auth.OAuth2( // create and assign google oAuth2.0
+                client_id, client_secret, redirect_uris[0]);
+              Subscriptions.find({ subscriptionId: req.body.subsId }, (err, sub) => {
+                oAuth2Client.setCredentials(sub[0].oAuth)
+                getSheetData(oAuth2Client, req.body.sheetId, req.body.tabId, sheetData => {
+                  // Save SpreadSheet Data
+                  const newSheetData = new StoredSheet({
+                    username: req.session.userdata.username,
+                    subscriptionId: req.body.subsId,
+                    sheetId: req.body.sheetId,
+                    tabName: req.body.tabId,
+                    columnCount: sheetData
+                  })
+                  newSheetData.save()
+                  res.json({
+                    status: 1,
+                    msg: 'Sheet saved successfully.'
+                  })
                 })
               })
             })
-          })
+          }
         }
-      }
-    })
+      })
+    } else {
+      res.json({
+        status: 0, // change to 401
+        msg: 'Login First',
+        subfiles: []
+      })
+    }
   })
 
 module.exports = rtr

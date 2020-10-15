@@ -6,7 +6,6 @@ const bodyParser = require('body-parser')
 const cors = require('cors')
 const morgan = require('morgan');
 const path = require('path')
-const config = require('./config/key.js')
 
 app.use(cors());
 
@@ -30,7 +29,7 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 } // 1 Day
 }))
 
-mongoose.connect(config.mongoURI, {
+mongoose.connect('<MONGODB_URI>', {
     useNewUrlParser: true,
     useCreateIndex: true,
     useUnifiedTopology: true

@@ -22,7 +22,8 @@ rtr.route('/login')
       if (user || err && user.password === upwd) {
         req.session.userdata = {
           username: user.username,
-          name: user.name
+          name: user.name,
+          redir: null
         }
         res.json({
           status: 200,
@@ -69,7 +70,8 @@ rtr.route('/signup')
             if (item) {
               req.session.userdata = {
                 username: item.username,
-                name: item.name
+                name: item.name,
+                redir: null
               }
               res.json({
                 status: 200,

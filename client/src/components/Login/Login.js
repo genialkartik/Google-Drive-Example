@@ -82,7 +82,7 @@ function Login(props) {
   return (
     <Container component="main" maxWidth="xs">
       {(login) ?
-        <Redirect to='/user/login' /> :
+        <Redirect to='/' /> :
         <>
           <Link to={`/`} style={{ position: 'absolute', fontSize: '1em', left: '30px', top: '20px' }}>
             <ArrowBackIcon /></Link>

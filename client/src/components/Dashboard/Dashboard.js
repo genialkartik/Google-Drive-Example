@@ -115,17 +115,22 @@ export default function Dashboard(props) {
   const classes = useStyles();
   const [open, setOpen] = React.useState(true);
   const [sheets, setSheets] = React.useState()
-  const [login, setLogin] = React.useState(true)
+  const [redir, setRedir] = React.useState(false)
+  const [redirUrl, setRedirUrl] = React.useState('')
 
   useEffect(() => {
     axios.get('/dashboard')
       .then(res => {
         if (res.data.status === 0) {
           alert(res.data.msg)
-          setLogin(false)
-        } else {
-          setSheets(res.data.sheetsData)
+          setRedirUrl('/user/login')
+          setRedir(true)
+        } else if (res.data.status === 3) {
+          setRedirUrl('/subscriptions')
+          setRedir(true)
         }
+        else
+          setSheets(res.data.sheetsData)
       })
   }, [props.history])
 
@@ -139,7 +144,11 @@ export default function Dashboard(props) {
 
   return (
     <div className={classes.root}>
-      {(login) ?
+      {(redir) ?
+        <>
+          <Redirect to={redirUrl} />
+        </>
+        :
         <>
           <CssBaseline />
           <AppBar position="absolute" className={clsx(classes.appBar, open && classes.appBarShift)}>
@@ -155,7 +164,7 @@ export default function Dashboard(props) {
               </IconButton>
               <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
                 Dashboard
-          </Typography>
+        </Typography>
             </Toolbar>
           </AppBar>
           <Drawer
@@ -237,8 +246,6 @@ export default function Dashboard(props) {
             </Container>
           </main>
         </>
-        :
-        <Redirect to='/user/login' />
       }
     </div>
   );

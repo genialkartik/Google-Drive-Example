@@ -142,41 +142,30 @@ function Subscription(props) {
   };
 
   useEffect(() => {
-    console.log(props.location)
-    let params = queryString.parse(props.location.search)
-    console.log(params.scope)
-    if (params.code) {
-      axios.post('/subscriptions', {
-        code: params.code
-      })
-        .then(res => {
+    axios.get('/subscriptions')
+      .then(res => {
+        if (res.data.status === 0) {
           alert(res.data.msg)
-          setRedirectURL('/subscriptions')
+          setRedirectURL('/user/login')
           setRedirect(true)
-        })
-    }
-    else {
-      axios.get('/subscriptions')
-        .then(res => {
-          if (res.data.status === 0) {
-            alert(res.data.msg)
-            setRedirectURL('/user/login')
-            setRedirect(true)
-          } else {
-            if (res.data.subfiles.length) {
-              setSubsList(res.data.subfiles)
-            }
+        } else if (res.data.status === 3) {
+          alert(res.data.msg)
+          setRedirectURL('/subscription')
+          setRedirect(true)
+        }
+        else {
+          if (res.data.subfiles.length) {
+            setSubsList(res.data.subfiles)
           }
-        })
-    }
+        }
+      })
   }, [props.location])
 
   const addSubscription = () => {
     axios.get('/subscriptions/add-sub')
       .then(res => {
         if (res.data.status === 2) {
-          setRedirectURL(res.data.authURL)
-          setRedirect(true)
+          window.location.replace(res.data.authURL)
         }
         if (res.data.status === 1) {
           console.log(res.data)

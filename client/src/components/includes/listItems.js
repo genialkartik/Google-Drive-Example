@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom'
+import { Link, Redirect } from 'react-router-dom'
 import axios from 'axios'
 
 import ListItem from '@material-ui/core/ListItem';
@@ -63,7 +63,7 @@ export const mainListItems = (
         axios.get('/user/logout')
           .then(res => {
             alert(res.data.msg)
-            window.location.replace('/user/login')
+            window.location.replace('/')
           })
       }}
     >
